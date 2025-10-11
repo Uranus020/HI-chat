@@ -1,0 +1,10 @@
+build/
+.gradle/
+**/bin/
+.idea/
+out/
+.vscode/
+.DS_Store
+*.pdf
+Chatbot- Frontend/
+HIChat_Final_Submission/
