@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hi-Chatbot</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Arial", sans-serif;
+        background-color: #f9f9f9;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      header {
+        background-color: #fff;
+        padding: 1rem;
+        font-weight: bold;
+        font-size: 1.2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        color: #339b90;
+      }
+
+      .header-right {
+        font-size: 0.8rem;
+      }
+
+      .header-right a {
+        color: #5ecac0;
+        text-decoration: none;
+        font-weight: normal;
+      }
+
+      .header-right a:hover {
+        text-decoration: underline;
+      }
+
+      .chat-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        overflow-y: auto;
+      }
+
+      .message {
+        max-width: 70%;
+        margin: 0.5rem 0;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+      }
+
+      .bot {
+        align-self: flex-start;
+        background-color: #e2e8f0;
+      }
+
+      .user {
+        align-self: flex-end;
+        background-color: #2dd4bf;
+        color: white;
+      }
+
+      .input-container {
+        display: flex;
+        padding: 0.75rem;
+        background-color: #fff;
+        border-top: 1px solid #ccc;
+      }
+
+      .input-container input {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+
+      .input-container button {
+        margin-left: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        background-color: #2dd4bf;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .suggestions {
+        margin-top: 1rem;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.4rem;
+        max-width: 70%;
+      }
+
+      .suggestions button,
+      .message.bot button {
+        background-color: #edf2f7;
+        border: none;
+        border-radius: 24px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+
+        text-align: center;
+        margin: 0.2rem;
+        transition: background 0.3s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .suggestions button:hover,
+      .message.bot button:hover {
+        background-color: #dbe4ec;
+      }
+    </style>
+    <script>
+      function showFacilityOptions() {
+        const container = document.querySelector(".chat-container");
+
+        const userMsg = document.createElement("div");
+        userMsg.className = "message user";
+        userMsg.textContent = "편의 시설";
+        container.appendChild(userMsg);
+
+        const botMsg = document.createElement("div");
+        botMsg.className = "message bot";
+        botMsg.innerHTML = `
+          원하는 시설 유형을 선택해주세요:<br/>
+          <button onclick='showFacilityDetail("convenience")'>편의점</button>
+          <button onclick='showFacilityDetail("cafe")'>카페</button>
+          <button onclick='showFacilityDetail("restaurant")'>학생식당</button>
+          <button onclick='showFacilityDetail("copy")'>복사/출력</button>
+          <button onclick='showFacilityDetail("bank")'>은행/ATM</button>
+        `;
+        container.appendChild(botMsg);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function showFacilityDetail(type) {
+        const container = document.querySelector(".chat-container");
+
+        const facilityInfo = {
+          convenience: `
+            <strong>📍 편의점 안내</strong><br/>
+            - 이마트24 : 제2 기숙사 지하 1층<br/>
+            - 바이스마트 : 홍문관(R동) 3층<br/><br/>
+            자세한 위치는 <a href="https://www.hongik.ac.kr/kr/life/facility.do" target="_blank">여기</a>에서 확인하세요.
+          `,
+          cafe: `
+            <strong>☕ 캠퍼스 카페</strong><br/>
+            - 카페드림 : 인문사회관(A동) 1층<br/>
+            - 켐퍼 : 제 2기숙사 지하 1층<br/>
+            - 카페아이엔지 : 중앙도서관(H동) 3층<br/>
+            - 파브리카 : 홍문관(R동) 2층<br/>
+            - 그라찌에 : 홍문관(R동) 2층<br/>
+            - 푸르타 : 홍문관(R동) 지하 2층<br/>
+            - 카페나무 : 인문사회관(C동) 8층<br/>
+            - 카페나무 : 와우관(L동)4층<br/>
+            - 카페나무 : 홍문관(R동) 로비층<br/>
+            자세한 위치는 <a href="https://www.hongik.ac.kr/kr/life/facility.do" target="_blank">여기</a>에서 확인하세요.
+          `,
+          restaurant: `
+            <strong>🍱 학생식당</strong><br/>
+            - 향차이 : 제 2기숙사 지하 1층<br/>
+            - 학생식당 : 제 2 기숙사 지하 1층<br/><br/>
+            메뉴 및 운영시간은 <a href="https://www.hongik.ac.kr/kr/life/facility.do" target="_blank">여기</a>에서 확인해주세요.
+          `,
+          copy: `
+            <strong>🖨️ 복사/출력 서비스</strong><br/>
+            - 에이제이네트웍스 : 학생회관(G동) 1층<br/>
+            - 에이제이네트웍스 : 홍문관(R동) 지하2층 <br/><br/>
+            상세 정보는 <a href="https://www.hongik.ac.kr/kr/life/facility.do" target="_blank">여기</a>에서 확인하실 수 있습니다.
+          `,
+          bank: `
+            <strong>🏦 은행 및 ATM</strong><br/>
+            - 신한은행 : 홍문관(R동) 1층<br/><br/>
+            자세한 정보는 <a href="https://www.hongik.ac.kr/kr/life/facility.do" target="_blank">이 페이지</a>에서 확인하세요.
+          `,
+        };
+        const labels = {
+          convenience: "편의점",
+          cafe: "카페",
+          restaurant: "학생식당",
+          copy: "복사/출력",
+          bank: "은행/ATM",
+        };
+
+        const userMsg = document.createElement("div");
+        userMsg.className = "message user";
+        userMsg.textContent = type;
+        container.appendChild(userMsg);
+
+        const botMsg = document.createElement("div");
+        botMsg.className = "message bot";
+        botMsg.innerHTML = facilityInfo[type];
+        container.appendChild(botMsg);
+
+        container.scrollTop = container.scrollHeight;
+      }
+    </script>
+  </head>
+  <body>
+    <header>
+      <div class="header-left">
+        <img
+          src="hi_logo.png"
+          alt="로고"
+          style="height: 24px; vertical-align: middle; margin-right: 8px"
+        />
+        홍익대학교 HI-Chatbot
+      </div>
+      <div class="header-right">
+        <a href="#">로그아웃</a>
+      </div>
+    </header>
+
+    <div class="chat-container">
+      <div class="message bot">안녕하세요! 무엇을 도와드릴까요?</div>
+
+      <div class="suggestions">
+        <button>FAQ</button>
+        <button>수강신청 정보</button>
+        <button>오늘의 메뉴</button>
+        <button>교내 연락처</button>
+        <button>장학금 정보</button>
+        <button>증명서 발급</button>
+        <button>학사 일정</button>
+        <button>도서관 정보</button>
+        <button>학점 확인</button>
+        <button>캠퍼스 지도</button>
+        <button>시험 일정</button>
+        <button onclick="showFacilityOptions()">편의 시설</button>
+        <button>입학 정보</button>
+      </div>
+    </div>
+
+    <div class="input-container">
+      <input type="text" placeholder="메시지를 입력하세요..." disabled />
+      <button disabled>전송</button>
+    </div>
+  </body>
+</html>

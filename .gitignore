@@ -4,3 +4,4 @@ build/
 .idea/
 out/
 .vscode/
+.DS_Store
