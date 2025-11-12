@@ -17,12 +17,12 @@ import com.hichat.hichat.dto.Scholarship;
 import com.hichat.hichat.service.ExamService;
 import com.hichat.hichat.service.GradeResultService;
 import com.hichat.hichat.service.ScholarshipService;
-
+import org.springframework.web.bind.annotation.CrossOrigin;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/chat")
-
+@CrossOrigin(origins="http://localhost:3000")
 
 public class ChatBotController {
 
