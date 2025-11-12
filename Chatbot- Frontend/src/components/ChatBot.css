@@ -1,12 +1,18 @@
 /* 전체 영역 */
 .chatbot-container {
-  max-width: 600px;
+  /* 기존 스타일 유지 + 반응형 크기 추가 */
+  width: min(92vw, 920px); /* 화면이 작으면 92vw, 크면 최대 920px */
+  height: clamp(520px, 78vh, 960px); /* 최소/일반/최대 높이 */
   margin: 40px auto;
   background-color: #fff9f1; /* 크림색 */
   border-radius: 20px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   font-family: "Pretendard", sans-serif;
+
+  /* 카드 안에서 헤더/본문/입력창 세로 배치 */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 헤더 */
@@ -36,12 +42,13 @@
   font-style: italic;
 }
 
-/* 대화 영역 */
+/* 대화 영역 — 남은 높이를 모두 차지하고 내부만 스크롤 */
 .chat-area {
-  padding: 20px;
+  flex: 1; /* 핵심: 남은 높이 전부 사용 */
+  overflow-y: auto; /* 내부 스크롤 */
   background-color: white;
-  max-height: 70vh;
-  overflow-y: auto;
+  padding: 20px 20px 88px; /* 아래 하단 입력창 공간만큼 패딩 */
+  /* 기존 max-height는 제거(반응형 높이와 충돌하므로) */
 }
 
 /* 메시지 */
@@ -100,7 +107,7 @@
   background-color: #0033ff;
 }
 
-/* 입력 */
+/* (카드 내부 말풍선 속) 단일 입력 폼 (GPA 등) */
 .input-area {
   display: flex;
   gap: 6px;
@@ -126,4 +133,40 @@
 
 .send-btn:hover {
   background-color: #0025ff;
+}
+
+/* ▼▼ 새로 추가: 하단 고정 자유 입력창(Composer) ▼▼ */
+.chat-composer {
+  position: sticky; /* 카드 하단에 고정 */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid #eee;
+}
+
+.chat-composer input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 480px) {
+  .chatbot-container {
+    width: 100vw;
+    height: 100dvh; /* 모바일 주소창 고려한 동적 vh */
+    margin: 0; /* 전체 풀스크린 느낌 */
+    border-radius: 0;
+  }
+  .chat-area {
+    padding: 12px 12px 88px;
+  }
+  .message-bubble {
+    max-width: 92%;
+  }
 }
