@@ -1,39 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { MessageCircle, Send, ExternalLink } from "lucide-react";
 import "./ChatBot.css";
 
-/**
- * =============================================================
- * HI-Chat (홍익대학교 학사 정보 챗봇) — 주석 가이드
- * =============================================================
- * 이 컴포넌트는 "버튼 기반 대화 플로우"와 "자연어 입력(NLP) 라우팅"을
- * 함께 제공하는 간단한 챗봇 UI입니다.
- *
- * 핵심 아이디어
- * 1) 상태 머신처럼 flow 단계를 나눠서( initial → exam-semester → exam-grade → ... )
- *    버튼 클릭과 API 응답에 따라 다음 단계로 넘어갑니다.
- * 2) 화면 하단의 자유 입력창(Composer)에 사용자가 자연어로 질문하면
- *    NLP(실제 Watson 또는 가짜 로직)가 의도를 파악하여 적절한 버튼 플로우로 연결합니다.
- * 3) 서버 API는 동일한 엔드포인트 규칙(`/api/chat/*`)을 사용하며,
- *    fetchJson 헬퍼로 에러 처리와 JSON 파싱을 통일합니다.
- *
- * 이 파일을 처음 보는 분들을 위한 읽는 순서
- * - 환경/상수 설정 → 공용 헬퍼(fetchJson) → 컴포넌트 상태들 → NLP 관련 함수 →
- *   엔티티를 상태에 반영 → 핸들러들(자연어/버튼/입력) → 렌더 구성을 보시면 이해가 쉽습니다.
- */
-
-// ====== 백엔드 API 베이스 URL (Vite 환경변수에서 주입) ======
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-// ====== NLP 설정 ======
-// NLP_BASE: 실제 Watson(또는 프록시) 서버의 베이스 경로
-// USE_FAKE_NLP: 초기 개발 단계에서 백엔드 없이도 동작하도록
-//               간단한 키워드 매칭으로 의도를 흉내내는 스위치
-const NLP_BASE = `${API_BASE}/api/nlp`;
-const USE_FAKE_NLP = true; // 백엔드 준비 전엔 true로 두고 테스트
+// NLP가 의도를 추출 -> 첫화면의 메뉴들 중 특정 메뉴(버튼)으로 자동적으로 연결할 수 있게 해주는 mapping표
 
-// Watson 인텐트 → 기존 버튼 라벨 매핑
-// NLP가 "exam_schedule"을 잡아내면, 기존 버튼 플로우의 "시험 일정 조회"로 보냅니다.
 const intentMap = {
   exam_schedule: "시험 일정 조회",
   academic_calendar: "학사 일정 확인",
@@ -41,18 +13,51 @@ const intentMap = {
   scholarship_info: "장학금 안내",
 };
 
-/** 공통 JSON 요청 헬퍼
- * - 모든 API 요청을 이 함수로 통일하면, 에러 처리와 파싱 로직이 한 곳에 모입니다.
- * - 응답 본문이 비어 있어도 안전하게 처리합니다.
- */
+// 사용자의 메시지에서 학년 / 학기 / 과목명을 간단히 추출하는 규칙 기반 엔티티 처리기
+function extractEntities(text) {
+  const entities = [];
+  const t = text.toLowerCase();
+
+  // 1) 학년
+  if (t.includes("1학년")) entities.push({ entity: "grade", value: "1학년" });
+  if (t.includes("2학년")) entities.push({ entity: "grade", value: "2학년" });
+  if (t.includes("3학년")) entities.push({ entity: "grade", value: "3학년" });
+  if (t.includes("4학년")) entities.push({ entity: "grade", value: "4학년" });
+
+  // 2) 학기: 예) "2025-2학기", "2024-1학기"
+  const semesterRegex = /(202[0-9]-[12]학기)/;
+  const sem = text.match(semesterRegex);
+  if (sem) {
+    entities.push({ entity: "semester", value: sem[1] });
+  }
+
+  // 3) 간단한 과목명 추출 (원하면 여기에 과목 추가 가능)
+  const subjects = ["자료구조", "운영체제", "데이터베이스", "컴퓨터구조"];
+  subjects.forEach((sub) => {
+    if (t.includes(sub)) {
+      entities.push({ entity: "subject", value: sub });
+    }
+  });
+
+  return entities;
+}
+
+// 백엔드로 요청을 보내고 응답을 확인
+
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
+    // 1. 백엔드로 요청을 보냄
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+
+  // 2. JSON 파싱을 통일
+
+  const text = await res.text(); // 백엔드의 응답을 text로 받음
+  const data = text ? JSON.parse(text) : null; // 응답의 길이 > 0 -> 파싱  , 응답이 비어있으면 null 반환
+
   if (!res.ok) {
+    // 에러 처리
     const err = new Error(data?.message || `HTTP ${res.status}`);
     err.status = res.status;
     err.data = data;
@@ -62,20 +67,20 @@ async function fetchJson(path, options = {}) {
 }
 
 function ChatBot() {
-  // ========================= 대화 메시지 상태 =========================
-  // messages: 채팅 창에 줄줄이 렌더링되는 데이터.
-  //  - type: 'bot' | 'user'
-  //  - content: 말풍선에 표시할 텍스트
-  //  - options: 선택지 버튼 목록(배열)
-  //  - inputType: 이 말풍선 아래에 표시할 입력창 타입(예: 'gpa')
-  //  - link: 버튼 클릭 시 외부 페이지로 이동시키고 싶을 때 사용
   const [messages, setMessages] = useState([
+    // 말풍선의 message 관리 , 화면에 보이는 말풍선 목록
+
+    // 첫화면의 메세지 구조
     {
-      id: "1",
-      type: "bot",
+      id: "1", // 메세지 구분을 위함
+      type: "bot", // 챗봇이 대화를 시작
+      // 말풍선 속 들어갈 대화 내용
       content:
         "안녕하세요! 홍익대학교 학사 정보 챗봇입니다. 🤓\n\n원하시는 서비스를 선택해주세요.",
+
       options: [
+        // 말풍선 안에 표시될 버튼 목록
+
         "시험 일정 조회",
         "학사 일정 확인",
         "성적 확인 일정",
@@ -84,85 +89,80 @@ function ChatBot() {
     },
   ]);
 
-  // ========================= 대화 흐름(상태 머신) =========================
-  // flow: 현재 단계 (initial → exam-semester → exam-grade → exam-subject → exam-professor → ...)
-  // selected* : 각 단계에서 사용자가 고른 값들을 보관하여 다음 API 호출의 쿼리로 사용
+  // 대화 흐름 관리
+
+  /**
+*  I. flow의 종류 
+
+1.   "initial": 처음 메뉴 화면
+
+2. "exam-semester": “어느 학기/중간/기말인지” 고르는 단계
+
+3. "exam-grade": 학년 선택 단계
+
+4. "exam-subject": 과목 선택 단계
+
+5. "exam-professor": 교수 선택 단계
+
+6. "scholarship": 장학금 GPA 입력 단계
+*/
   const [conversationState, setConversationState] = useState({
     flow: "initial",
-    selectedSemester: "",
-    selectedGrade: "",
-    selectedSubject: "",
-    selectedProfessor: "",
+    selectedSemester: "", // 선택된 학기 예) 2025-2학기
+    selectedGrade: "", // 선택된 학년 예)  3학년
+    selectedSubject: "", // 선택된 과목 예) 운영체제
+    selectedProfessor: "", // 선택된 교수명 예) 이장호 교수님
   });
 
-  // 버튼 말풍선 아래에 붙는 입력창용 값 (예: GPA 입력)
   const [inputValue, setInputValue] = useState("");
-  const [pendingGPA, setPendingGPA] = useState(null); // 장학금 시나리오에서 입력받은 GPA 임시 저장
+  const [pendingGPA, setPendingGPA] = useState(null); // 받을 수 있는 장학금을 알아보기 위해 받는 장학금 입력값
 
-  // ========================= 자유 입력(NLP) 전용 상태 =========================
-  // composerValue: 하단 고정 입력창(자연어 질문) 값
-  // isTyping: "입력 중…" 인디케이터
-  // sessionIdRef: 실제 Watson 모드에서 세션 ID를 유지(useRef는 렌더 사이클 간 값 보존)
+  // 자유 입력창과 관련된 value들
+
   const [composerValue, setComposerValue] = useState("");
+  // composerValue는 추후 handleComposerSubmit함수에서 intent를 분석하고 분석된 값에 따라 버튼 플로우로 라우팅해주는데 쓰임
+
   const [isTyping, setIsTyping] = useState(false);
-  const sessionIdRef = useRef(null);
 
-  // 실제 Watson 모드일 때만 세션 생성
-  useEffect(() => {
-    if (!USE_FAKE_NLP) {
-      (async () => {
-        try {
-          const r = await fetch(`${NLP_BASE}/session`);
-          const j = await r.json();
-          sessionIdRef.current = j.session_id; // 이후 메시지 전송 시 함께 사용
-        } catch (e) {
-          addMessage("bot", "NLP 세션 초기화 실패: 새로고침해 주세요.");
-        }
-      })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 말풍선 추가해주는 함수
 
-  /** 말풍선 하나를 messages에 추가하는 헬퍼 */
   const addMessage = (type, content, options, inputType, link) => {
     const newMessage = {
-      id: Date.now().toString(), // 간단히 타임스탬프로 유니크 ID 생성
-      type,
-      content,
-      options,
-      inputType,
-      link,
+      id: Date.now().toString(), // 현재 시각을 기준으로 unique 한 id를 생성
+      type, // bot 인지 사용자인지
+      content, // 말풍선에 들어갈 내용
+      options, // 말풍선에 들어갈 버튼 목록
+      inputType, // 말풍선에 들어갈 입력창(gpa)
+      link, // 외부 url(학사 일정 홈페이지로 연결 )
     };
     setMessages((prev) => [...prev, newMessage]);
   };
 
-  // ========================= NLP 전송 함수들 =========================
-  // 실제(Real) Watson: 세션과 함께 서버에 메시지 전송
-  async function sendRealNLP(text, context) {
-    const r = await fetch(`${NLP_BASE}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionIdRef.current, text, context }),
-    });
-    if (!r.ok) throw new Error(`NLP HTTP ${r.status}`);
-    return r.json(); // 예: { output: { intents, entities, generic, ... } }
-  }
+  // ========================= Fake NLP =========================
+  async function semiNLP(text) {
+    const t = text.toLowerCase(); // 사용자로부터 입력받은 메세지를 소문자화시킴
 
-  // 가짜(Fake) NLP: 아주 단순한 키워드 매칭으로 의도 흉내
-  async function sendFakeNLP(text) {
-    const t = text.toLowerCase();
-    let intent = null;
+    let intent = null; // null값으로 먼저 intent를 초기화
+
+    // 키워드 매칭하기
+
     if (t.includes("시험") || t.includes("중간") || t.includes("기말"))
       intent = "exam_schedule";
-    else if (t.includes("학사")) intent = "academic_calendar";
+    // 시험 일정 키워드가 있을 경우 intent를 "exam_schedule"로 매핑
+    else if (t.includes("학사") || t.includes("학사일정"))
+      intent = "academic_calendar";
+    // 학사 일정 관련 키워드 : intent - > "academic_calender"로 매핑
     else if (t.includes("성적") || t.includes("열람"))
+      // 성적 열람 관련 키워드는 "grade_result_date"로 intent를 매핑
       intent = "grade_result_date";
-    else if (t.includes("장학")) intent = "scholarship_info";
+    else if (t.includes("장학")) intent = "scholarship_info"; // 장학금 관련은 "scholarship_info"로 intent를 매핑
+
+    const entities = extractEntities(text);
 
     return {
       output: {
         intents: intent ? [{ intent, confidence: 0.9 }] : [],
-        entities: [],
+        entities, // <- semi 엔티티가 여기에 담김
         generic: intent
           ? [{ text: "요청을 이해했어요. 관련 메뉴로 이동합니다." }]
           : [],
@@ -170,22 +170,16 @@ function ChatBot() {
     };
   }
 
-  // 실제/가짜 중 스위치에 따라 전송
-  async function sendNLPorMock(text, context) {
-    if (USE_FAKE_NLP) return sendFakeNLP(text);
-    return sendRealNLP(text, context);
-  }
+  // nlp가 뽑은 엔티티를 챗봇의 내부 상태에 저장하는 함수 - 현재 semiNLP 상태에서는 작용 x
 
-  // ========================= Watson 엔티티 → 우리 상태에 반영 =========================
-  // Watson에서 추출한 엔티티(semester/grade/subject/professor 등)가 있다면
-  // 이후 단계에서 선택 과정을 건너뛰거나 기본값으로 활용할 수 있습니다.
   function applyEntitiesToState(entities) {
+    //getVal :  entities에 들어있는 여러가지 정보 중에 특정 정보만 뽑아낼 수 있게 함
     const getVal = (name) => entities.find((e) => e.entity === name)?.value;
 
-    const semester = getVal("semester"); // 예: "2025-2학기 중간고사"
-    const grade = getVal("grade"); // 예: "2학년"
-    const subject = getVal("subject"); // 예: "자료구조및프로그래밍"
-    const professor = getVal("professor"); // 예: "송하윤 교수"
+    const semester = getVal("semester");
+    const grade = getVal("grade");
+    const subject = getVal("subject");
+    const professor = getVal("professor");
 
     setConversationState((prev) => ({
       ...prev,
@@ -196,39 +190,41 @@ function ChatBot() {
     }));
   }
 
-  // ========================= 자유 입력창(Composer) 제출 핸들러 =========================
-  // * 초기 화면(flow === 'initial')에서만 NLP로 라우팅합니다.
-  // * 의도가 애매하면 기본 버튼 선택지로 유도합니다.
+  // 사용자 입력창에 message 입력
+
   const handleComposerSubmit = async (e) => {
     e.preventDefault();
+
     const text = composerValue.trim();
-    if (!text) return;
 
-    addMessage("user", text);
-    setComposerValue("");
+    if (!text) return; // text 없으면 함수 종료
 
-    if (conversationState.flow !== "initial") return; // 진행 중인 플로우가 있으면 방해하지 않음
+    addMessage("user", text); // 사용자가 입력한 텍스트를 채팅창에 사용자의 말풍선으로 추가 (화면에 표시)
+
+    setComposerValue(""); // 입력창 비우기
+
+    if (conversationState.flow !== "initial") return; // 초기 화면이 아닐경우 NLP로 해석x
+    // 버튼으로 이미 플로우가 진행 중이면 자연어 입력이 플로우를 방해하지 않도록 함
 
     try {
       setIsTyping(true);
-      const data = await sendNLPorMock(text);
 
-      // Watson이 생성한 자연어 답변(generic)이 있으면 먼저 보여주기
-      const generic = (data.output?.generic || [])
-        .map((g) => g.text)
-        .filter(Boolean);
-      if (generic.length) addMessage("bot", generic.join("\n"));
+      const data = await semiNLP(text);
 
-      // 엔티티가 있다면 내부 상태에 반영(슬롯 채우기)
-      applyEntitiesToState(data.output?.entities || []);
+      const generic = (data.output?.generic || []) // 챗봇이 바로 말할 수 있는 문장들 가져옴
+        .map((g) => g.text) // 객체 배열에서 text 만 가져오기
+        .filter(Boolean); // 빈 문자열 혹은 null undefined는 제거
 
-      // 최상위 의도 + 신뢰도를 이용해 기존 버튼 플로우로 매핑
-      const top = data.output?.intents?.[0];
-      const minConfidence = 0.45;
-      const mapped = top?.intent && intentMap[top.intent];
+      if (generic.length) addMessage("bot", generic.join("\n")); // generic의 텍스트가 있으면 봇 말풍선 추가
+
+      applyEntitiesToState(data.output?.entities || []); // NLPrㅏ 뽑아준 엔티티가 있으면 conversationstate에 반영(semiNLP에서는 작동 x)
+
+      const top = data.output?.intents?.[0]; // 가장 신뢰도가 높은 intent 가져옴
+      const minConfidence = 0.45; // 최소 신뢰도 : 0.45 (watson 기준 따름 )
+      const mapped = top?.intent && intentMap[top.intent]; // intentMap 기준으로 버튼 플로우로 연결
 
       if (!top || top.confidence < minConfidence || !mapped) {
-        // 애매하면 기본 메뉴로 유도
+        // 사용자의 입력의 intent를 잘 파악하지 못하면 아래의 메세지를 챗봇이 내보냄
         addMessage("bot", "아래에서 원하시는 서비스를 선택해주세요.", [
           "시험 일정 조회",
           "학사 일정 확인",
@@ -238,8 +234,7 @@ function ChatBot() {
         return;
       }
 
-      // 의도가 확실하면 해당 버튼을 누른 것처럼 행동
-      await handleOptionClick(mapped);
+      await handleOptionClick(mapped); // intent와 버튼이 잘 매핑이 되었음
     } catch (err) {
       addMessage("bot", `NLP 오류: ${err.message}`);
     } finally {
@@ -247,19 +242,19 @@ function ChatBot() {
     }
   };
 
-  // ========================= 버튼(옵션) 클릭 핸들러 =========================
-  // 한 함수가 모든 단계(flow)를 스위치처럼 처리합니다.
-  // setTimeout(400ms)은 "생각하는 느낌"을 주기 위한 연출(실제 기능엔 영향 없음)
+  // 사용자가 메뉴 버튼 클릭 시 실행되는 handleOptionClick
   const handleOptionClick = async (option) => {
     addMessage("user", option);
+    // 사용자가 클릭한 버튼을 user쪽 말풍선으로 채팅창에 표시
 
     setTimeout(async () => {
-      // ① 초기 메뉴 선택
+      // ① 초기 메뉴 단계
       if (conversationState.flow === "initial") {
+        // 사용자가 누른 버튼에 따라 분기
         switch (option) {
+          // 사용자 누른 버튼 : 시험 일정 조회 일 때
           case "시험 일정 조회": {
-            // 다음 단계로: 학기/시험 종류 선택
-            setConversationState({ flow: "exam-semester" });
+            setConversationState({ flow: "exam-semester" }); // flow 변경
             addMessage("bot", "조회하실 학기와 시험을 선택해주세요.", [
               "2025-1학기 중간고사",
               "2025-1학기 기말고사",
@@ -268,9 +263,8 @@ function ChatBot() {
             ]);
             return;
           }
-
+          // 사용자 누른 버튼 : 학사 일정 확인일 때
           case "학사 일정 확인": {
-            // 외부 링크로 유도 → 버튼을 누르면 handleLinkClick으로 새 탭 오픈
             addMessage(
               "bot",
               "홍익대학교 공식 학사 일정 페이지로 이동합니다.\n\n아래 버튼을 클릭하여 최신 학사 일정을 확인하세요.",
@@ -285,9 +279,7 @@ function ChatBot() {
             }, 1000);
             return;
           }
-
           case "성적 확인 일정": {
-            // 서버에서 이번 학기의 성적 열람 시작일 정보를 받아와 안내
             try {
               const gradeResult = await fetchJson(
                 "/api/chat/grade-result-date"
@@ -306,21 +298,18 @@ function ChatBot() {
             }, 1000);
             return;
           }
-
+          // 사용자 누른 버튼 : 장학금 안내일 때
           case "장학금 안내": {
-            // 장학금은 조건(예: GPA, 봉사 여부)에 따라 달라지므로 입력을 받습니다.
             setConversationState({ flow: "scholarship" });
             addMessage(
               "bot",
               "교내 장학금 수혜 가능 여부를 확인해드리겠습니다.\n\n본인의 평점을 입력해주세요. (예: 3.75)",
               [],
-              "gpa" // 이 말풍선 아래에 소형 입력창을 노출
+              "gpa"
             );
             return;
           }
-
           case "처음으로": {
-            // 언제든 초기 메뉴로 리셋 가능
             setConversationState({ flow: "initial" });
             addMessage(
               "bot",
@@ -337,12 +326,12 @@ function ChatBot() {
         }
       }
 
-      // ② 학기/시험 선택 → 다음은 학년 선택 단계
+      // ② 현재 flow의 상태가 exam-semester인 경우 ->  학년 선택 단계로
       if (conversationState.flow === "exam-semester") {
         setConversationState({
           ...conversationState,
           flow: "exam-grade",
-          selectedSemester: option, // 사용자가 고른 학기/시험(문자열) 저장
+          selectedSemester: option,
         });
         addMessage("bot", "조회하실 학년을 선택해주세요.", [
           "1학년",
@@ -353,7 +342,7 @@ function ChatBot() {
         return;
       }
 
-      // ③ 학년 선택 → 과목 목록 API 호출
+      // ③ 학년 선택 후 과목 목록 조회
       if (conversationState.flow === "exam-grade") {
         try {
           const subjects = await fetchJson(
@@ -361,7 +350,6 @@ function ChatBot() {
               conversationState.selectedSemester
             )}&grade=${encodeURIComponent(option)}`
           );
-
           if (subjects.length > 0) {
             setConversationState({
               ...conversationState,
@@ -382,7 +370,7 @@ function ChatBot() {
         return;
       }
 
-      // ④ 과목 선택 → 교수 목록 API 호출
+      // ④ 과목 선택 후 교수 목록 조회
       if (conversationState.flow === "exam-subject") {
         try {
           const professors = await fetchJson(
@@ -392,7 +380,6 @@ function ChatBot() {
               conversationState.selectedGrade
             )}&subject=${encodeURIComponent(option)}`
           );
-
           if (professors.length > 0) {
             setConversationState({
               ...conversationState,
@@ -411,7 +398,7 @@ function ChatBot() {
         return;
       }
 
-      // ⑤ 교수 선택 → 섹션별 시험 일정 출력
+      // ⑤ 교수 선택 후 시험 정보 조회
       if (conversationState.flow === "exam-professor") {
         try {
           const sections = await fetchJson(
@@ -423,7 +410,6 @@ function ChatBot() {
               conversationState.selectedSubject
             )}&professor=${encodeURIComponent(option)}`
           );
-
           if (sections) {
             let response = `📘 ${conversationState.selectedSubject} (${option}) 시험 일정\n\n`;
             Object.entries(sections).forEach(([section, details]) => {
@@ -445,12 +431,12 @@ function ChatBot() {
           setTimeout(() => {
             addMessage("bot", "다른 서비스를 이용하시겠습니까?", ["처음으로"]);
           }, 1000);
-          setConversationState({ flow: "initial" }); // 플로우 종료 후 초기화
+          setConversationState({ flow: "initial" });
         }
         return;
       }
 
-      // ⑥ 장학금 흐름 중 봉사 여부 선택 단계
+      // ⑥ 장학금 흐름 - 봉사 여부 단계
       if (conversationState.flow === "scholarship-volunteer") {
         const volunteer = option === "예";
         try {
@@ -458,7 +444,6 @@ function ChatBot() {
             method: "POST",
             body: JSON.stringify({ gpa: pendingGPA, volunteer }),
           });
-
           if (!Array.isArray(eligible) || eligible.length === 0) {
             addMessage(
               "bot",
@@ -495,37 +480,46 @@ function ChatBot() {
     }, 400);
   };
 
-  // ========================= 말풍선 하단 입력창 제출(GPA 등) =========================
+  //말풍선 속 입력을 처리하는 함수 (gpa)
+
   const handleInputSubmit = async (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
+
     addMessage("user", inputValue);
+
     const trimmed = inputValue.trim();
-    setInputValue("");
+
+    setInputValue(""); // 입력 창 비우기
 
     if (conversationState.flow === "scholarship") {
+      // 장학금 입력 중일 때
+
       const gpa = parseFloat(trimmed);
+
       if (isNaN(gpa) || gpa < 0 || gpa > 4.5) {
-        // 유효성 검사 실패 시, 같은 말풍선에 입력창을 다시 노출
+        // 올바른 입력이 아닐 때
         addMessage("bot", "올바른 평점을 입력해주세요. (0.0 ~ 4.5)", [], "gpa");
         return;
       }
-      // GPA 저장 후 봉사 여부 질문 단계로 이동
+
       setPendingGPA(gpa);
-      setConversationState({ flow: "scholarship-volunteer" });
+
+      setConversationState({ flow: "scholarship-volunteer" }); // 제대로된 학점이 입력되었을 때 현재 대화 상태를 사회 봉사 이수를 묻는 단계로 이동
+
       addMessage("bot", "사회봉사 시간을 이수하셨나요?", ["예", "아니오"]);
+      // 사회 봉사 시간 이수를 봇이 물어보는 채팅을 띄움
+
       return;
     }
   };
 
-  // 외부 링크 버튼용 클릭 핸들러
   const handleLinkClick = (link) => window.open(link, "_blank");
 
-  // ========================= 렌더 =========================
-  // 상단 헤더 → 대화 말풍선 목록 → (타이핑 표시) → 하단 자유 입력창(Composer)
   return (
     <div className="chatbot-container">
       <div className="chatbot-header">
+        {/* 챗봇 상단바  */}
         <MessageCircle className="icon" />
         <div>
           <div className="title">HI-Chat</div>
@@ -543,10 +537,8 @@ function ChatBot() {
                 msg.type === "user" ? "user-bubble" : "bot-bubble"
               }`}
             >
-              {/* 텍스트 본문 */}
               <div className="message-text">{msg.content}</div>
 
-              {/* 선택지 버튼(있을 때만) */}
               {msg.options && (
                 <div className="options">
                   {msg.options.map((opt, i) => (
@@ -566,7 +558,6 @@ function ChatBot() {
                 </div>
               )}
 
-              {/* 말풍선 하단 입력창(예: GPA) */}
               {msg.inputType && (
                 <form onSubmit={handleInputSubmit} className="input-area">
                   <input
@@ -584,7 +575,6 @@ function ChatBot() {
           </div>
         ))}
 
-        {/* NLP 처리 중 시각적 피드백 */}
         {isTyping && (
           <div className="message-row bot">
             <div className="message-bubble bot-bubble">
@@ -594,7 +584,6 @@ function ChatBot() {
         )}
       </div>
 
-      {/* 항상 보이는 자유 입력창(자연어 질문) */}
       <form className="chat-composer" onSubmit={handleComposerSubmit}>
         <input
           type="text"
