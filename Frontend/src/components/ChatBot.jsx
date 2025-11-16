@@ -279,25 +279,38 @@ function ChatBot() {
             }, 1000);
             return;
           }
-          case "성적 확인 일정": {
-            try {
-              const gradeResult = await fetchJson(
-                "/api/chat/grade-result-date"
-              );
-              addMessage(
-                "bot",
-                `📅 성적 확인 일정 안내\n\n• 학기: ${gradeResult.semester}\n• 성적 열람 시작일: ${gradeResult.date}\n• 시작 시간: ${gradeResult.time}\n\n학사정보시스템을 통해 확인하실 수 있습니다.`
-              );
-            } catch (e) {
-              addMessage("bot", `성적 일정 조회 실패: ${e.message}`);
+            case "성적 확인 일정": {
+                try {
+                    // 1. gradeResults (복수) 는 이제 *배열*입니다. 예: [ {...}, {...} ]
+                    const gradeResults = await fetchJson(
+                        "/api/chat/grade-result-date"
+                    );
+
+                    // 2. 배열이 비어있거나, 데이터가 없는지 확인
+                    if (!Array.isArray(gradeResults) || gradeResults.length === 0) {
+                        addMessage("bot", "성적 확인 일정이 아직 등록되지 않았습니다.");
+
+                        // 3. (중요!) '다른 서비스' 버튼이 바로 뜨도록 return 대신 break를 사용합니다.
+                        // (기존 코드 흐름을 유지하기 위해)
+                        break;
+                    }
+
+                    // 4. 배열을 순회하며(loop) 메시지 텍스트를 만듭니다.
+                    let messageContent = "📅 성적 확인 일정 안내\n";
+                    gradeResults.forEach((result) => {
+                        messageContent += `\n• 학기: ${result.semester}\n• 성적 열람 시작일: ${result.date}\n• 시작 시간: ${result.time}\n`;
+                    });
+                    messageContent += "\n학사정보시스템을 통해 확인하실 수 있습니다.";
+
+                    addMessage("bot", messageContent);
+
+                } catch (e) {
+                    addMessage("bot", `성적 일정 조회 실패: ${e.message}`);
+                }
+
+                // 5. break로 빠져나와서 '다른 서비스' 버튼을 공통으로 띄웁니다.
+                break;
             }
-            setTimeout(() => {
-              addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
-                "처음으로",
-              ]);
-            }, 1000);
-            return;
-          }
           // 사용자 누른 버튼 : 장학금 안내일 때
           case "장학금 안내": {
             setConversationState({ flow: "scholarship" });
