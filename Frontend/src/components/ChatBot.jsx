@@ -270,7 +270,7 @@ function ChatBot() {
               "홍익대학교 공식 학사 일정 페이지로 이동합니다.\n\n아래 버튼을 클릭하여 최신 학사 일정을 확인하세요.",
               ["홍익대학교 학사 일정 페이지"],
               undefined,
-              "https://www.hongik.ac.kr/index.do"
+              "https://www.hongik.ac.kr/kr/education/academic-schedule.do"
             );
             setTimeout(() => {
               addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
