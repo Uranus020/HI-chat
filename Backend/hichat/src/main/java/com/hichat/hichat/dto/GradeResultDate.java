@@ -1,14 +1,18 @@
 package com.hichat.hichat.dto;
 
 public class GradeResultDate {
-    private String semester;
-    private String date;
-    private String time;
 
-    public GradeResultDate() {}
+    private String semester;   // 예: "2025-1학기"
+    private String examType;   // 예: "학기성적" 또는 "중간고사"/"기말고사"
+    private String date;       // 예: "6월 30일"
+    private String time;       // 예: "오전 10시"
 
-    public GradeResultDate(String semester, String date, String time) {
+    public GradeResultDate() {
+    }
+
+    public GradeResultDate(String semester, String examType, String date, String time) {
         this.semester = semester;
+        this.examType = examType;
         this.date = date;
         this.time = time;
     }
@@ -19,6 +23,14 @@ public class GradeResultDate {
 
     public void setSemester(String semester) {
         this.semester = semester;
+    }
+
+    public String getExamType() {
+        return examType;
+    }
+
+    public void setExamType(String examType) {
+        this.examType = examType;
     }
 
     public String getDate() {

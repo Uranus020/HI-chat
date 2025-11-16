@@ -3,19 +3,16 @@ package com.hichat.hichat.service;
 import com.hichat.hichat.dto.GradeResultDate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class GradeResultService {
 
-    private final GradeResultDate resultDate;
+    public List<GradeResultDate> getDates() {
+        return List.of(
+                new GradeResultDate("2025-1학기", "학기성적", "6월 30일", "오전 10시"),
+                new GradeResultDate("2025-2학기", "학기성적", "12월 29일", "오전 10시")
 
-    public GradeResultService() {
-        resultDate = new GradeResultDate();
-        resultDate.setSemester("2025-2학기");
-        resultDate.setDate("12월 26일");
-        resultDate.setTime("오전 10시");
-    }
-
-    public GradeResultDate getDate() {
-        return resultDate;
+        );
     }
 }

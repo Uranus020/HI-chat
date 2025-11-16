@@ -65,10 +65,9 @@ public class ChatBotController {
   }
 
   @GetMapping("/grade-result-date")
-  public GradeResultDate getGradeResultDate() {
-    return gradeResultService.getDate();
+  public List<GradeResultDate> getGradeResultDate() {
+      return gradeResultService.getDates();
   }
-
  
   @PostMapping(value = "/scholarship", consumes = "application/json", produces = "application/json")
   public List<Scholarship> getScholarship(@Valid @RequestBody GPARequest request) {
