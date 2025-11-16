@@ -2,6 +2,7 @@ package com.hichat.hichat.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -11,17 +12,16 @@ public class CorsConfig {
   public WebMvcConfigurer corsConfigurer() {
     return new WebMvcConfigurer() {
       @Override
-      public void addCorsMappings(CorsRegistry registry) {
+      public void addCorsMappings(@NonNull CorsRegistry registry) { //
         registry.addMapping("/api/**")
-            .allowedOrigins(
-                "http://localhost:3001", // 내꺼
-                "http://localhost:5173",
-                "http://localhost:3000"
-                
-            )
-            .allowedMethods("GET", "POST", "OPTIONS")
-            .allowedHeaders("*");
-            // .allowCredentials(true); // 세션/쿠키 쓸 때만
+                .allowedOrigins(
+                        "http://localhost:5173",
+                        "http://localhost:3000"
+
+                )
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("*");
+        // .allowCredentials(true); // 세션/쿠키 쓸 때만
       }
     };
   }
