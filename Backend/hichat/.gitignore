@@ -36,3 +36,7 @@ out/
 ### VS Code ###
 .vscode/
 
+
+###db source ###
+/hichatdb.mv.db
+/hichatdb.trace.db

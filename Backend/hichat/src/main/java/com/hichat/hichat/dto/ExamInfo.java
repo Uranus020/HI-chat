@@ -1,15 +1,17 @@
 package com.hichat.hichat.dto;
 
 public class ExamInfo {
+
     private String date;
     private String time;
     private String room;
     private String note;
 
-    // 기본 생성자 
-    public ExamInfo() {}
+    // 기본 생성자
+    public ExamInfo() {
+    }
 
-    //  전체 필드 초기화 생성자
+    // 전체 필드 초기화 생성자
     public ExamInfo(String date, String time, String room, String note) {
         this.date = date;
         this.time = time;
