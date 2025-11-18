@@ -2,15 +2,30 @@ package com.hichat.hichat.domain;
 
 import jakarta.persistence.*;
 
+/**
+ * @Entity
+ * 이 클래스가 데이터베이스 테이블과 매핑되는 JPA 엔티티임을 선언!
+ */
 @Entity
+// @Table: 실제 DB의 테이블 이름('EXAM_SCHEDULE')을 명시적으로 연결하기
 @Table(name = "EXAM_SCHEDULE") // ★ data.sql의 테이블 이름과 동일하게
 public class ExamSchedule {
 
+    /**
+     * @Id: 이 필드가 테이블의 Primary Key(기본 키)임을 나타냄
+     * @GeneratedValue(strategy = GenerationType.IDENTITY)
+     * DB가 ID 값을 자동으로 생성(auto-increment)하도록 설정함
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "year")          // H2에서 YEAR 예약어지만, url에 NON_KEYWORDS=YEAR 있어서 사용 가능
+    /**
+     * @Column(name = "...")
+     * Java 필드명과 DB 컬럼명이 다를 경우 이름을 명시하거나,
+     * 동일하더라도 명확하게 매핑하기 위해 사용함
+     */
+    @Column(name = "year")    // H2에서 YEAR 예약어지만, url에 NON_KEYWORDS=YEAR 있어서 사용 가능
     private String year;
 
     @Column(name = "semester")
@@ -40,6 +55,10 @@ public class ExamSchedule {
     @Column(name = "note")
     private String note;
 
+    /**
+     * 🚩JPA는 엔티티 객체를 생성할 때 기본 생성자를 필요로 하기에
+     * protected로 선언하여 외부에서 실수로 호출하는 것을 방지하기!!
+     */
     protected ExamSchedule() {
     }
 
