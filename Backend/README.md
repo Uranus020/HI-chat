@@ -27,7 +27,7 @@
 ## 💾 데이터베이스 (H2) 확인 방법:
 이 프로젝트는 앱 실행 시 data.sql 파일의 데이터를 메모리에 자동으로 로드하는 H2 인메모리 데이터 베이스를 사용합니다.
 
------------------------
+
 앱이 실행중인 상태에서 H2 콘솔에 접속하여 DB데이터를 실시간으로 확인할 수 있습니다.
 1. 웹 브라우저를 열고 http://localhost:8080/h2-console 주소로 접속합니다.
 2. 로그인 화면에서 아래와 같이 정확히 입력하고 Connect 버튼을 누릅니다.
@@ -39,35 +39,37 @@
    - SELECT *FROM EXAM_SCHEDULE; 쿼리로 데이터를 조회할 수 있습니다.
 
 ## 📥 프로젝트 구조:
+```text
 Backend
 └── src
-└── main
-├── java/com/hichat/hichat
-│   ├── HichatApplication.java     # (1) Spring Boot 메인 실행 파일
-│   ├── config
-│   │   └── CorsConfig.java        # (2) 프론트엔드(React) CORS 허용 설정
-│   ├── controller
-│   │   └── ChatBotController.java # (3) API 엔드포인트 정의
-│   ├── domain
-│   │   └── ExamSchedule.java      # (4) DB 테이블과 매핑되는 JPA 엔티티
-│   ├── dto
-│   │   ├── ExamInfo.java          # (5) API 응답용 DTO (시험 정보)
-│   │   ├── GPARequest.java        # (5) API 요청용 DTO (GPA)
-│   │   ├── GradeResultDate.java   # (5) API 응답용 DTO (성적 일정)
-│   │   └── Scholarship.java       # (5) API 응답용 DTO (장학금)
-│   ├── exception
-│   │   └── GlobalExceptionHandler.java # (6) 프로젝트 전역 오류 처리
-│   ├── repository
-│   │   └── ExamScheduleRepository.java # (7) JPA 리포지토리 (DB 쿼리)
-│   └── service
-│       ├── ExamService.java         # (8) 시험 일정 비즈니스 로직
-│       ├── GradeResultService.java  # (8) 성적 일정 비즈니스 로직
-│       └── ScholarshipService.java  # (8) 장학금 비즈니스 로직
-│
-└── resources
-├── application.properties     # (9) 서버 포트, DB 연결, JPA 핵심 설정
-└── data.sql                   # (10) DB 초기화용 시험 데이터
+    └── main
+        ├── java/com/hichat/hichat
+        │   ├── HichatApplication.java     # (1) Spring Boot 메인 실행 파일
+        │   ├── config
+        │   │   └── CorsConfig.java        # (2) 프론트엔드(React) CORS 허용 설정
+        │   ├── controller
+        │   │   └── ChatBotController.java # (3) API 엔드포인트 정의
+        │   ├── domain
+        │   │   └── ExamSchedule.java      # (4) DB 테이블과 매핑되는 JPA 엔티티
+        │   ├── dto
+        │   │   ├── ExamInfo.java          # (5) API 응답용 DTO (시험 정보)
+        │   │   ├── GPARequest.java        # (5) API 요청용 DTO (GPA)
+        │   │   ├── GradeResultDate.java   # (5) API 응답용 DTO (성적 일정)
+        │   │   └── Scholarship.java       # (5) API 응답용 DTO (장학금)
+        │   ├── exception
+        │   │   └── GlobalExceptionHandler.java # (6) 프로젝트 전역 오류 처리
+        │   ├── repository
+        │   │   └── ExamScheduleRepository.java # (7) JPA 리포지토리 (DB 쿼리)
+        │   └── service
+        │       ├── ExamService.java         # (8) 시험 일정 비즈니스 로직
+        │       ├── GradeResultService.java  # (8) 성적 일정 비즈니스 로직
+        │       └── ScholarshipService.java  # (8) 장학금 비즈니스 로직
+        │
+        └── resources
+            ├── application.properties     # (9) 서버 포트, DB 연결, JPA 핵심 설정
+            └── data.sql                   # (10) DB 초기화용 시험 데이터
 
+```
 ----------
 
 ### 주요 파일 설명:
@@ -86,7 +88,7 @@ Backend
 ## ❕API 엔드포인트:
 모든 API는 http://localhost:8080/api/chat 경로를 기본으로 합니다.
 
---------------------------------------------------------------
+
 | Method | 경로       | 설명                                                               |
 | --|----------|------------------------------------------------------------------|
 |GET| /grades  | _시험 학년 조회_ : 특정 학기(semester쿼리)에 개설된 학년 목록을 반환                    |
