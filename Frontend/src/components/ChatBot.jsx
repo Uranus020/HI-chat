@@ -242,10 +242,10 @@ function ChatBot() {
     }
   };
 
-  // 사용자가 메뉴 버튼 클릭 시 실행되는 handleOptionClick
+  // 👆 사용자가 메뉴 버튼 클릭 시 실행되는 handleOptionClick
   const handleOptionClick = async (option) => {
     addMessage("user", option);
-    // 사용자가 클릭한 버튼을 user쪽 말풍선으로 채팅창에 표시
+    // 사용자가 클릭한 버튼을 user쪽 말풍선으로 채팅창에  바로 표시
 
     setTimeout(async () => {
       // ① 초기 메뉴 단계
@@ -273,47 +273,47 @@ function ChatBot() {
               "https://www.hongik.ac.kr/kr/education/academic-schedule.do"
             );
             setTimeout(() => {
+              // 처음화면 이동할 수 있게 도움
               addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
                 "처음으로",
               ]);
             }, 1000);
             return;
           }
-            case "성적 확인 일정": {
-                try {
-                    // 1. gradeResults (복수) 는 이제 *배열*입니다.
-                    const gradeResults = await fetchJson(
-                        "/api/chat/grade-result-date"
-                    );
+          case "성적 확인 일정": {
+            try {
+              // 1. gradeResults (복수) 는 이제 *배열*입니다.
+              const gradeResults = await fetchJson(
+                "/api/chat/grade-result-date"
+              );
 
-                    // 2. 배열이 비어있거나, 데이터가 없는지 확인
-                    if (!Array.isArray(gradeResults) || gradeResults.length === 0) {
-                        addMessage("bot", "성적 확인 일정이 아직 등록되지 않았습니다.");
-                    } else {
-                        // 3. 배열을 순회하며(loop) 메시지 텍스트를 만듭니다.
-                        let messageContent = "📅 성적 확인 일정 안내\n";
-                        gradeResults.forEach((result) => {
-                            messageContent += `\n• 학기: ${result.semester}\n• 성적 열람 시작일: ${result.date}\n• 시작 시간: ${result.time}\n`;
-                        });
-                        messageContent += "\n학사정보시스템을 통해 확인하실 수 있습니다.";
+              // 2. 배열이 비어있거나, 데이터가 없는지 확인
+              if (!Array.isArray(gradeResults) || gradeResults.length === 0) {
+                addMessage("bot", "성적 확인 일정이 아직 등록되지 않았습니다.");
+              } else {
+                // 3. 배열을 순회하며(loop) 메시지 텍스트를 만듭니다.
+                let messageContent = "📅 성적 확인 일정 안내\n";
+                gradeResults.forEach((result) => {
+                  messageContent += `\n• 학기: ${result.semester}\n• 성적 열람 시작일: ${result.date}\n• 시작 시간: ${result.time}\n`;
+                });
+                messageContent +=
+                  "\n학사정보시스템을 통해 확인하실 수 있습니다.";
 
-                        addMessage("bot", messageContent);
-                    }
-
-                } catch (e) {
-                    addMessage("bot", `성적 일정 조회 실패: ${e.message}`);
-                }
-
-                // 4. (★★★★★) "처음으로" 버튼을 추가하는 setTimeout을 다시 넣습니다.
-                setTimeout(() => {
-                    addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
-                        "처음으로",
-                    ]);
-                }, 1000); // 1초 뒤에 "처음으로" 버튼 표시
-
-                // 5. (★★★★★) return을 사용해 'initial' flow를 종료합니다.
-                return;
+                addMessage("bot", messageContent);
+              }
+            } catch (e) {
+              addMessage("bot", `성적 일정 조회 실패: ${e.message}`);
             }
+
+            //
+            setTimeout(() => {
+              addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
+                "처음으로",
+              ]);
+            }, 1000); // 1초 뒤에 "처음으로" 버튼 표시
+
+            return;
+          }
           // 사용자 누른 버튼 : 장학금 안내일 때
           case "장학금 안내": {
             setConversationState({ flow: "scholarship" });
@@ -496,7 +496,7 @@ function ChatBot() {
     }, 400);
   };
 
-  //말풍선 속 입력을 처리하는 함수 (gpa)
+  // 🖍️ gpa  입력한 것을 처리하는 함수
 
   const handleInputSubmit = async (e) => {
     e.preventDefault();
@@ -555,6 +555,7 @@ function ChatBot() {
             >
               <div className="message-text">{msg.content}</div>
 
+              {/* ⬇️ 말풍선 내부의 옵션을 랜더링 */}
               {msg.options && (
                 <div className="options">
                   {msg.options.map((opt, i) => (
@@ -562,8 +563,9 @@ function ChatBot() {
                       key={i}
                       className="option-btn"
                       onClick={() =>
+                        // 옵션 중 하나 클릭하면
                         msg.link
-                          ? handleLinkClick(msg.link)
+                          ? handleLinkClick(msg.link) // 학사 일정 확인 메뉴 클릭했을 때
                           : handleOptionClick(opt)
                       }
                     >
@@ -574,6 +576,7 @@ function ChatBot() {
                 </div>
               )}
 
+              {/* inputType 이 gpa 즉 존재할 때, 제출할 수 있는 칸을 만든다.  */}
               {msg.inputType && (
                 <form onSubmit={handleInputSubmit} className="input-area">
                   <input
@@ -600,6 +603,7 @@ function ChatBot() {
         )}
       </div>
 
+      {/* ⬇️ 채팅창 : 사용자가 입력할 수 있음 */}
       <form className="chat-composer" onSubmit={handleComposerSubmit}>
         <input
           type="text"
