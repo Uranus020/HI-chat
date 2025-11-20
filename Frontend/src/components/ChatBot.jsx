@@ -45,11 +45,19 @@ function extractEntities(text) {
 // 백엔드로 요청을 보내고 응답을 확인
 
 async function fetchJson(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    // 1. 백엔드로 요청을 보냄
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
+  // res : 서버가 보낸 HTTP 응답 전체를 담고 있는 객체
+  const res = await fetch(
+    `${API_BASE}${path}`,
+    {
+      // 1. 백엔드로 요청을 보냄
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
+    }
+    // option : json 파일 보낼 것
+  );
 
   // 2. JSON 파싱을 통일
 
@@ -115,7 +123,7 @@ function ChatBot() {
   });
 
   const [inputValue, setInputValue] = useState("");
-  const [pendingGPA, setPendingGPA] = useState(null); // 받을 수 있는 장학금을 알아보기 위해 받는 장학금 입력값
+  const [pendingGPA, setPendingGPA] = useState(null);
 
   // 자유 입력창과 관련된 value들
 
@@ -242,7 +250,7 @@ function ChatBot() {
     }
   };
 
-  // 👆 사용자가 메뉴 버튼 클릭 시 실행되는 handleOptionClick
+  //  ✅ 사용자가 메뉴 버튼 클릭 시 실행되는 handleOptionClick
   const handleOptionClick = async (option) => {
     addMessage("user", option);
     // 사용자가 클릭한 버튼을 user쪽 말풍선으로 채팅창에  바로 표시
@@ -263,17 +271,19 @@ function ChatBot() {
             ]);
             return;
           }
-          // 사용자 누른 버튼 : 학사 일정 확인일 때
+          // 사용자가 누른 버튼 : 학사 일정 확인일 때
           case "학사 일정 확인": {
+            // 챗봇 쪽에서 홍익대학교 학사 일정 페이지 안내 메시지를 보낸다.
             addMessage(
               "bot",
-              "홍익대학교 공식 학사 일정 페이지로 이동합니다.\n\n아래 버튼을 클릭하여 최신 학사 일정을 확인하세요.",
+              "홍익대학교 공식 학사 일정 페이지로 이동합니다.\0n\n아래 버튼을 클릭하여 최신 학사 일정을 확인하세요.",
               ["홍익대학교 학사 일정 페이지"],
               undefined,
-              "https://www.hongik.ac.kr/kr/education/academic-schedule.do"
+              "https://www.hongik.ac.kr/kr/education/academic-schedule.do" // 학사 일정 링크
             );
             setTimeout(() => {
-              // 처음화면 이동할 수 있게 도움
+              // 학사 일정 정보 링크를 제공한 후 1초 뒤에 처음 화면 안내하는 메세지 보내기
+
               addMessage("bot", "다른 서비스를 이용하시겠습니까?", [
                 "처음으로",
               ]);
@@ -282,7 +292,6 @@ function ChatBot() {
           }
           case "성적 확인 일정": {
             try {
-              // 1. gradeResults (복수) 는 이제 *배열*입니다.
               const gradeResults = await fetchJson(
                 "/api/chat/grade-result-date"
               );
@@ -362,6 +371,8 @@ function ChatBot() {
       if (conversationState.flow === "exam-grade") {
         try {
           const subjects = await fetchJson(
+            // 백엔드로부터 사용자가 선택한 학기와 학년에 맞는 과목들을 리스트로 subjects 로 받아온다
+            // encodeURIComponent : URL 안에 띄어쓰기나 특수문자가 있을 때 URL이 깨지지 않게 하기위해 안전하게 인코딩해주는 함수
             `/api/chat/subjects?semester=${encodeURIComponent(
               conversationState.selectedSemester
             )}&grade=${encodeURIComponent(option)}`
@@ -530,7 +541,7 @@ function ChatBot() {
     }
   };
 
-  const handleLinkClick = (link) => window.open(link, "_blank");
+  const handleLinkClick = (link) => window.open(link, "_blank"); // 새 탭에서 링크를 여는 함수
 
   return (
     <div className="chatbot-container">
@@ -555,15 +566,14 @@ function ChatBot() {
             >
               <div className="message-text">{msg.content}</div>
 
-              {/* ⬇️ 말풍선 내부의 옵션을 랜더링 */}
-              {msg.options && (
+              {msg.options && ( // ChatBot 화면에 options 가 있으면 버튼 렌더링
                 <div className="options">
                   {msg.options.map((opt, i) => (
                     <button
                       key={i}
                       className="option-btn"
                       onClick={() =>
-                        // 옵션 중 하나 클릭하면
+                        // 옵션 중 하나 클릭했을 때
                         msg.link
                           ? handleLinkClick(msg.link) // 학사 일정 확인 메뉴 클릭했을 때
                           : handleOptionClick(opt)
@@ -571,6 +581,7 @@ function ChatBot() {
                     >
                       {opt}
                       {msg.link && <ExternalLink size={12} />}
+                      {/* msg에 link가 있을 때 external link로 부터 링크 접속 아이콘 가져오기*/}
                     </button>
                   ))}
                 </div>
