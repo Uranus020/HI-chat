@@ -1,5 +1,9 @@
 package com.hichat.hichat.dto;
 
+/**
+ * 장학금 조회 API (/api/chat/scholarship)의 응답(Response) 본문에 사용될
+ * DTO
+ */
 public class Scholarship {
     private String name;
     private double minGpa;
@@ -7,8 +11,10 @@ public class Scholarship {
     private String description;
     private boolean requireVolunteer;
 
+    // JSON 라이브러리를 위한 기본 생성자
     public Scholarship() {}
 
+    // Serivce 레이어에서 객체를 쉽게 생성하기 위한 생성자
     public Scholarship(String name, double minGpa, String amount, String description, boolean requireVolunteer) {
         this.name = name;
         this.minGpa = minGpa;
@@ -17,6 +23,8 @@ public class Scholarship {
         this.requireVolunteer = requireVolunteer;
     }
 
+    // --- Getter & Setter ---
+    // JSON 변환을 위해 필요함
     public String getName() { return name; }
     public double getMinGpa() { return minGpa; }
     public String getAmount() { return amount; }

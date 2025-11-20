@@ -7,9 +7,18 @@ import java.util.List;
 import java.util.ArrayList;
 
 
+/**
+ * @Service
+ * 이 클래스가 서비스 컴포넌트임을 선언
+ */
 @Service
 public class ScholarshipService {
-
+    /**
+     * 수혜 가능한 장학금 목록을 계산하여 반환
+     * @param gpa 사용자가 입력한 평점 (예: 3.75)
+     * @param volunteer 사회봉사 이수 여부 (true/false)
+     * @return List<Scholarship> 수혜 가능한 장학금 DTO 리스트
+     */
     public List<Scholarship> getEligibleScholarships(double gpa, boolean volunteer) {
         List<Scholarship> list = new ArrayList<>();
 
