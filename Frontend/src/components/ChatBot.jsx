@@ -46,26 +46,34 @@ function detectExamType(text) {
 }
 
 /**
- * 과목 부분 매칭용 점수 계산
+ *  사용자가 입력한 문자열이 어떤 과목명과 얼마나 비슷한지 점수로 계산한다
  * - 완전 일치 / 부분 포함 / 글자 겹침 정도를 종합해서 score 계산
  */
 function scoreSubjectMatch(input, subject) {
-  const t = input.toLowerCase().replace(/\s+/g, "");
-  const s = subject.toLowerCase().replace(/\s+/g, "");
+  /**
+   * 예를 들어 사용자가 "운체 중간"이라고 채팅창에 입력했다고 하고 extractEntities를 통해서 subject를 운영체제라고 찾은 경우를 생각해보자
+   * input : "운체 중간" / subject : "운영체제"
+   */
 
-  if (!t || !s) return 0;
+  const t = input.replace(/\s+/g, ""); // 해당 input의 여백 제거
+  const s = subject.replace(/\s+/g, "");
 
-  if (t === s) return 100;
+  if (!t || !s) return 0; // t 나 s가 빈문자열이면 점수 : 0점
 
-  // 입력이 과목명 속에 그대로 들어가면 (ex. "운영체제" vs "운체")
+  if (t === s) return 100; // 두 문자열이 완전히 같으면 점수 : 100점
+
+  // 입력값이 과목명 안에 포함되고 입력값의 길이가 두 글자 이상이면 (ex. "운영체제" vs "운체") 점수 : 90점
   if (s.includes(t) && t.length >= 2) return 90;
 
-  // 전체 과목명이 입력창에 입력되는 경우
+  // 과목명 전체가 입력값 안에 포함될때
+  // 예를 들어 사용자가 "운영체제 중간고사 언제?" 라고 입력하면 과목명은 "운영체제" 일 때,
+  // t.includes(s)가 성립 && 과목명이 두 글자 이상일 때 점수 : 80점
   if (t.includes(s) && s.length >= 2) return 80;
 
-  // 공통 글자 수로 느슨하게 매칭
+  // ⬇️  글자 하나씩 비교해서 겹치는 글자수를 센다
   let common = 0;
-  const seen = new Set();
+  const seen = new Set(); // 같은 글자가 여러번 중복되는 것을 방지
+
   for (const ch of t) {
     if (s.includes(ch) && !seen.has(ch)) {
       seen.add(ch);
@@ -73,9 +81,9 @@ function scoreSubjectMatch(input, subject) {
     }
   }
 
-  if (common >= 3) return 40 + common; // 글자 3개 이상 겹치면  강하게 매칭된다고 판단
-  if (common === 2) return 30;
-  return 0;
+  if (common >= 3) return 40 + common; // 글자 3개 이상 겹치면  꽤 높은 매칭이라고 판단함
+  if (common === 2) return 30; // 겹치는 글자가 2개 이면 어는 정도 비슷하다고 판단
+  return 0; // 거의 안 비슷한 경우 점수 : 0점
 }
 
 /**
@@ -94,6 +102,7 @@ function extractEntities(text, allSubjects) {
   // 2) 학기: 예) "2025-2학기"
   const semesterRegex = /(202[0-9]-[12]학기)/;
   const sem = text.match(semesterRegex);
+
   if (sem) {
     entities.push({ entity: "semester", value: sem[1] });
   } else {
@@ -110,19 +119,25 @@ function extractEntities(text, allSubjects) {
 
   // 3)  백엔드에서 가져온 전체 과목 목록을  기반으로 과목명을  부분 매칭
   if (Array.isArray(allSubjects) && allSubjects.length > 0) {
-    let best = null;
+    // allSubjects가 배열인지 확인 && 배열 안에 최소 1개 과목이 있는지 체크
+
+    let best = null; // best : 가장 높은 점수를 받은 과목을 저장
 
     allSubjects.forEach((sub) => {
-      const score = scoreSubjectMatch(text, sub);
+      const score = scoreSubjectMatch(text, sub); // 각 과목마다 scoreSubjectMatch("운체 중간","운영체제")를 계산 -> 30점
+
       if (score > 0) {
         if (!best || score > best.score) {
-          best = { subject: sub, score };
+          // 가장 높은 점수를 받는 과목을 선택
+          best = { subject: sub, score }; // 지금까지 비교한 것 중 가장 점수가 높은 과목을 저장함.
         }
       }
     });
 
-    // 너무 헐렁하게 매칭되지 않도록 threshold 설정
+    //threshold 체크
     if (best && best.score >= 30) {
+      // 가장 비슷한 과목의 좀수가 30점 이상 -> subject 엔티티로 인정
+
       entities.push({ entity: "subject", value: best.subject });
     }
   }
@@ -131,32 +146,34 @@ function extractEntities(text, allSubjects) {
 }
 
 /**
- *   추론 함수
- * - examType: "중간고사" / "기말고사"
- * - subject: 백엔드에 실제로 존재하는 과목명 (allSubjects에서 온 것)
+ *   과목 이름 + 시험 종류(중간/기말) 을 통해 <어느 학기, 몇학년 과목>인지 찾아주는 함수
  */
 async function autoResolveExam(
   subject,
   examType,
-  { gradeHint, semesterHint } = {}
+  { gradeHint, semesterHint } = {} // gradeHint : 사용자가 학년을 직접 말해주면 존재 / semesterHInt : 사용자가 2025-1학기라고 말해주면 존재
 ) {
-  let semesterCandidates;
+  let semesterCandidates; // 어느 학기들을 검사해볼지 담아 둘 배열
 
-  // 사용자가 "2025-1학기"까지 말해줬으면 그 학기만 검색
   if (semesterHint) {
+    // semesterHint가 존재 -> 그 학기만 검사하면 됨
     semesterCandidates = [`${semesterHint} ${examType}`];
   } else {
+    // 사용자가 학기를 말해주지 않은 경우
     semesterCandidates =
       examType === "중간고사"
         ? ["2025-1학기 중간고사", "2025-2학기 중간고사"]
         : ["2025-1학기 기말고사", "2025-2학기 기말고사"];
   }
 
-  // 사용자가 "1학년"이라고 말했으면 그 학년만 검색
-  const gradeCandidates = gradeHint
+  const gradeCandidates = gradeHint // 사용자가 학년을 말해주면 그 gradeHint를 쓰고 말해주지 않으면 전체 학년을 찾아본다
     ? [gradeHint]
     : ["1학년", "2학년", "3학년", "4학년"];
+
   const matches = [];
+
+  // 학기 후보 x 학년 후보를 돌면서
+  // 백엔드의 /api/chat/subjects의 정보를 fetch해 어떤 과목들이 있는지 그 리스트를 받아온다.
 
   for (const semester of semesterCandidates) {
     for (const grade of gradeCandidates) {
@@ -169,6 +186,7 @@ async function autoResolveExam(
 
         if (Array.isArray(subjects) && subjects.includes(subject)) {
           matches.push({ semester, grade });
+          // "운체 중간" -> semester : "25-2학기 중간고사" grade :" 3학년"
         }
       } catch {
         // 실패하면 에러 무시
@@ -226,7 +244,7 @@ function ChatBot() {
 
   const [composerValue, setComposerValue] = useState(""); // 자유 입력창과 관련된 value들
   const [inputValue, setInputValue] = useState(""); // 말풍선 안 GPA 입력용
-  const [pendingGPA, setPendingGPA] = useState(null);
+  const [pendingGPA, setPendingGPA] = useState(null); // 저장된 GPA 관리
   const [isTyping, setIsTyping] = useState(false);
 
   //  백엔드에서 받아오는 전체 과목 목록 관리
@@ -234,16 +252,24 @@ function ChatBot() {
 
   useEffect(() => {
     async function loadAllSubjects() {
+      /**
+       * 2025-1/2 학기 x 1~4학년의 모든 조합에 대해
+       * 백엔드의 /api/chat/subject?... 에 저장된 과목명들을 set에 넣은 후 allSubjects useState에 저장한다
+       *
+       * ✨ 주 목적 : 홍익대 컴퓨터공학과의 전공 과목들(예: 자료구조, 운영체제, 데이터베이스 등등 ) 을 미리 다 가지고 있게 한다
+       * + 예를 들어 운영체제를 full이름이 아닌 운체 , 디지털시스템설계를 디시설로 입력해도 추정할 수 있게 한다
+       */
       const set = new Set();
 
       const semesterCandidates = [
+        // 학기 후보들
         "2025-1학기 중간고사",
         "2025-1학기 기말고사",
         "2025-2학기 중간고사",
         "2025-2학기 기말고사",
       ];
 
-      const gradeCandidates = ["1학년", "2학년", "3학년", "4학년"];
+      const gradeCandidates = ["1학년", "2학년", "3학년", "4학년"]; // 학년 후보들
 
       for (const sem of semesterCandidates) {
         for (const grade of gradeCandidates) {
@@ -345,7 +371,8 @@ function ChatBot() {
    * - "운체 중간" → 운영체제 과목, 중간고사, 학기/학년 자동 추론 후 교수 선택 단계로 이동
    */
   async function handleExamFromNLP(text, entities) {
-    const examType = detectExamType(text);
+    const examType = detectExamType(text); // 조회하고자 하는 시험이 중간고사인지 기말고사인지 판단
+
     const subject = entities.find((e) => e.entity === "subject")?.value;
 
     if (!examType || !subject) return false;
@@ -361,7 +388,7 @@ function ChatBot() {
       semesterHint,
     });
 
-    // 딱 한 개만 찾은 경우에만 자동 확정
+    // 딱 한 개만 찾은 경우에만 자동 확정 바로 교수님 선택으로 넘어간다
     if (matches.length === 1) {
       const { semester, grade } = matches[0];
 
@@ -375,6 +402,7 @@ function ChatBot() {
 
       try {
         const professors = await fetchJson(
+          // 교수 목록을 가져오고 존재하면 챗봇에서 메세지를 보낸다.
           `/api/chat/professors?semester=${encodeURIComponent(
             semester
           )}&grade=${encodeURIComponent(grade)}&subject=${encodeURIComponent(
@@ -414,17 +442,19 @@ function ChatBot() {
     const text = composerValue.trim();
     if (!text) return;
 
-    addMessage("user", text); // 사용자가 입력한 텍스트를 채팅창에 사용자의 말풍선으로 추가 (화면에 표시)
+    addMessage("user", text); // 사용자가 입력한 텍스트를 채팅창에 사용자의 말풍선으로 추가 (화면에 표시) ex. 운체 중간 언제야?
+
     setComposerValue(""); // 입력창 비우기
 
     if (conversationState.flow !== "initial") return;
-    // 초기 화면이 아닐경우 NLP로 해석x
-    // 버튼으로 이미 플로우가 진행 중이면 자연어 입력이 플로우를 방해하지 않도록 함
+    // 초기 화면이 아닐경우 NLP로 해석x 즉 이미 어떤 플로우가  진행 중이면 채팅창 인식은 하지 않는다.
 
     try {
       setIsTyping(true);
 
-      const data = await semiNLP(text);
+      const data = await semiNLP(text); // semiNLP 함수를 실행해 intent 와 entities를 추출한 후 data로 받아온다
+      // 예를 들어 운체 중간 -> intent : exam_schedule  /  entities : {subject : 운영체제 }
+
       const entities = data.output?.entities || [];
 
       const generic = (data.output?.generic || []) // 챗봇이 바로 말할 수 있는 문장들 가져옴
@@ -435,7 +465,7 @@ function ChatBot() {
         addMessage("bot", generic.join("\n")); // 보통 "요청을 이해했어요. 관련 메뉴로 이동합니다." 이 문구를 내보냄
       }
 
-      applyEntitiesToState(entities);
+      applyEntitiesToState(entities); // 엔티티를 state에 반영
 
       const top = data.output?.intents?.[0]; // 가장 신뢰도가 높은 intent 가져옴
       const minConfidence = 0.45; // 최소 신뢰도 : 0.45 (watson 기준 따름 )
@@ -447,6 +477,7 @@ function ChatBot() {
       // 시험 일정 intent → 자동 추론 먼저 시도
       if (mapped === "시험 일정 조회") {
         const autoOk = await handleExamFromNLP(text, entities);
+        // handleOptionClick로 가기전에 handleExamFromNLP를 먼저 호출해 자동으로 끝까지 갈 수 있는 지 시도한다.
         if (!autoOk) {
           await handleOptionClick(mapped);
         }
