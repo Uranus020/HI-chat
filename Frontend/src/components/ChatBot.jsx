@@ -82,12 +82,13 @@ function scoreSubjectMatch(input, subject) {
   }
 
   if (common >= 3) return 40 + common; // 글자 3개 이상 겹치면  꽤 높은 매칭이라고 판단함
+
   if (common === 2) return 30; // 겹치는 글자가 2개 이면 어는 정도 비슷하다고 판단
   return 0; // 거의 안 비슷한 경우 점수 : 0점
 }
 
 /**
- * 텍스트에서 과목명 엔티티 추출 (백엔드에서 받아온 전체 과목 리스트 사용)
+ * 텍스트에서 과목명 엔티티 추출 ⏳ (백엔드에서 받아온 전체 과목 리스트 사용)
  */
 function extractEntities(text, allSubjects) {
   const entities = [];
@@ -119,7 +120,7 @@ function extractEntities(text, allSubjects) {
 
   // 3)  백엔드에서 가져온 전체 과목 목록을  기반으로 과목명을  부분 매칭
   if (Array.isArray(allSubjects) && allSubjects.length > 0) {
-    // allSubjects가 배열인지 확인 && 배열 안에 최소 1개 과목이 있는지 체크
+    // 백엔드로부터 받아온 정보를 토대로 만들어진 allSubjects 리스트가 배열 이고 배열의 크기가 0보다 크면 아래를 실행한다.
 
     let best = null; // best : 가장 높은 점수를 받은 과목을 저장
 
@@ -280,9 +281,7 @@ function ChatBot() {
               )}&grade=${encodeURIComponent(grade)}`
             );
             subs.forEach((s) => set.add(s.trim()));
-          } catch {
-            // 실패해도 무시
-          }
+          } catch {}
         }
       }
 
@@ -305,7 +304,7 @@ function ChatBot() {
     setMessages((prev) => [...prev, newMessage]);
   };
 
-  // Semi NLP - 간단한 키워드 매칭으로 intent를 추론하는 rule-based NLP이다
+  // Semi NLP - 간단한 키워드 매칭으로 intent를 추론하는 rule-based  함수
 
   async function semiNLP(text) {
     const t = text.toLowerCase();
